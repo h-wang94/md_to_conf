@@ -23,6 +23,8 @@ import urllib
 import webbrowser
 import requests
 import markdown
+import convert
+
 from datetime import datetime
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - \
@@ -129,199 +131,6 @@ except Exception as err:
     LOGGER.error('\nFailed to process command line arguments. Exiting.')
     sys.exit(1)
 
-def convert_comment_block(html):
-    """
-    Convert markdown code bloc to Confluence hidden comment
-
-    :param html: string
-    :return: modified html string
-    """
-    open_tag = '<ac:placeholder>'
-    close_tag = '</ac:placeholder>'
-
-    html = html.replace('<!--', open_tag).replace('-->', close_tag)
-
-    return html
-
-
-def convert_code_block(html):
-    """
-    Convert html code blocks to Confluence macros
-
-    :param html: string
-    :return: modified html string
-    """
-    code_blocks = re.findall(r'<pre><code.*?>.*?</code></pre>', html, re.DOTALL)
-    if code_blocks:
-        for tag in code_blocks:
-
-            conf_ml = '<ac:structured-macro ac:name="code">'
-            conf_ml = conf_ml + '<ac:parameter ac:name="theme">Midnight</ac:parameter>'
-            conf_ml = conf_ml + '<ac:parameter ac:name="linenumbers">true</ac:parameter>'
-
-            lang = re.search('code class="(.*)"', tag)
-            if lang:
-                lang = lang.group(1)
-            else:
-                lang = 'none'
-
-            conf_ml = conf_ml + '<ac:parameter ac:name="language">' + lang + '</ac:parameter>'
-            content = re.search(r'<pre><code.*?>(.*?)</code></pre>', tag, re.DOTALL).group(1)
-            content = '<ac:plain-text-body><![CDATA[' + content + ']]></ac:plain-text-body>'
-            conf_ml = conf_ml + content + '</ac:structured-macro>'
-            conf_ml = conf_ml.replace('&lt;', '<').replace('&gt;', '>')
-            conf_ml = conf_ml.replace('&quot;', '"').replace('&amp;', '&')
-
-            html = html.replace(tag, conf_ml)
-
-    return html
-
-
-def convert_info_macros(html):
-    """
-    Converts html for info, note or warning macros
-
-    :param html: html string
-    :return: modified html string
-    """
-    info_tag = '<p><ac:structured-macro ac:name="info"><ac:rich-text-body><p>'
-    note_tag = info_tag.replace('info', 'note')
-    warning_tag = info_tag.replace('info', 'warning')
-    close_tag = '</p></ac:rich-text-body></ac:structured-macro></p>'
-
-    # Custom tags converted into macros
-    html = html.replace('<p>~?', info_tag).replace('?~</p>', close_tag)
-    html = html.replace('<p>~!', note_tag).replace('!~</p>', close_tag)
-    html = html.replace('<p>~%', warning_tag).replace('%~</p>', close_tag)
-
-    # Convert block quotes into macros
-    quotes = re.findall('<blockquote>(.*?)</blockquote>', html, re.DOTALL)
-    if quotes:
-        for quote in quotes:
-            note = re.search('^<.*>Note', quote.strip(), re.IGNORECASE)
-            warning = re.search('^<.*>Warning', quote.strip(), re.IGNORECASE)
-
-            if note:
-                clean_tag = strip_type(quote, 'Note')
-                macro_tag = clean_tag.replace('<p>', note_tag).replace('</p>', close_tag).strip()
-            elif warning:
-                clean_tag = strip_type(quote, 'Warning')
-                macro_tag = clean_tag.replace('<p>', warning_tag).replace('</p>', close_tag).strip()
-            else:
-                macro_tag = quote.replace('<p>', info_tag).replace('</p>', close_tag).strip()
-
-            html = html.replace('<blockquote>%s</blockquote>' % quote, macro_tag)
-
-    # Convert doctoc to toc confluence macro
-    html = convert_doctoc(html)
-
-    return html
-
-
-def convert_doctoc(html):
-    """
-    Convert doctoc to confluence macro
-
-    :param html: html string
-    :return: modified html string
-    """
-
-    toc_tag = '''<p>
-    <ac:structured-macro ac:name="toc">
-      <ac:parameter ac:name="printable">true</ac:parameter>
-      <ac:parameter ac:name="style">disc</ac:parameter>
-      <ac:parameter ac:name="maxLevel">7</ac:parameter>
-      <ac:parameter ac:name="minLevel">1</ac:parameter>
-      <ac:parameter ac:name="type">list</ac:parameter>
-      <ac:parameter ac:name="outline">clear</ac:parameter>
-      <ac:parameter ac:name="include">.*</ac:parameter>
-    </ac:structured-macro>
-    </p>'''
-
-    html = re.sub('\<\!\-\- START doctoc.*END doctoc \-\-\>', toc_tag, html, flags=re.DOTALL)
-
-    return html
-
-
-def strip_type(tag, tagtype):
-    """
-    Strips Note or Warning tags from html in various formats
-
-    :param tag: tag name
-    :param tagtype: tag type
-    :return: modified tag
-    """
-    tag = re.sub('%s:\s' % tagtype, '', tag.strip(), re.IGNORECASE)
-    tag = re.sub('%s\s:\s' % tagtype, '', tag.strip(), re.IGNORECASE)
-    tag = re.sub('<.*?>%s:\s<.*?>' % tagtype, '', tag, re.IGNORECASE)
-    tag = re.sub('<.*?>%s\s:\s<.*?>' % tagtype, '', tag, re.IGNORECASE)
-    tag = re.sub('<(em|strong)>%s:<.*?>\s' % tagtype, '', tag, re.IGNORECASE)
-    tag = re.sub('<(em|strong)>%s\s:<.*?>\s' % tagtype, '', tag, re.IGNORECASE)
-    tag = re.sub('<(em|strong)>%s<.*?>:\s' % tagtype, '', tag, re.IGNORECASE)
-    tag = re.sub('<(em|strong)>%s\s<.*?>:\s' % tagtype, '', tag, re.IGNORECASE)
-    string_start = re.search('<.*?>', tag)
-    tag = upper_chars(tag, [string_start.end()])
-    return tag
-
-
-def upper_chars(string, indices):
-    """
-    Make characters uppercase in string
-
-    :param string: string to modify
-    :param indices: character indice to change to uppercase
-    :return: uppercased string
-    """
-    upper_string = "".join(c.upper() if i in indices else c for i, c in enumerate(string))
-    return upper_string
-
-
-def slug(string, lowercase):
-    """
-    Creates a slug string
-
-    :param string: string to modify
-    :param lowercase: bool indicating whether string has to be lowercased
-    :return: slug string
-    """
-
-    slug_string = string
-    if lowercase:
-        slug_string = string.lower()
-
-    slug_string = "-".join(slug_string.split())
-    return slug_string
-
-
-def process_refs(html):
-    """
-    Process references
-
-    :param html: html string
-    :return: modified html string
-    """
-    refs = re.findall('\n(\[\^(\d)\].*)|<p>(\[\^(\d)\].*)', html)
-
-    if refs:
-
-        for ref in refs:
-            if ref[0]:
-                full_ref = ref[0].replace('</p>', '').replace('<p>', '')
-                ref_id = ref[1]
-            else:
-                full_ref = ref[2]
-                ref_id = ref[3]
-
-            full_ref = full_ref.replace('</p>', '').replace('<p>', '')
-            html = html.replace(full_ref, '')
-            href = re.search('href="(.*?)"', full_ref).group(1)
-
-            superscript = '<a id="test" href="%s"><sup>%s</sup></a>' % (href, ref_id)
-            html = html.replace('[^%s]' % ref_id, superscript)
-
-    return html
-
-
 def get_page(title):
     """
      Retrieve page details by title
@@ -407,27 +216,6 @@ def add_images(page_id, html):
                                     '/download/attachments/%s/%s' % (page_id, basename))
     return html
 
-
-def add_contents(html):
-    """
-    Add contents page
-
-    :param html: html string
-    :return: modified html string
-    """
-    contents_markup = '<ac:structured-macro ac:name="toc">\n<ac:parameter ac:name="printable">' \
-                     'true</ac:parameter>\n<ac:parameter ac:name="style">disc</ac:parameter>'
-    contents_markup = contents_markup + '<ac:parameter ac:name="maxLevel">5</ac:parameter>\n' \
-                                      '<ac:parameter ac:name="minLevel">1</ac:parameter>'
-    contents_markup = contents_markup + '<ac:parameter ac:name="class">rm-contents</ac:parameter>\n' \
-                                      '<ac:parameter ac:name="exclude"></ac:parameter>\n' \
-                                      '<ac:parameter ac:name="type">list</ac:parameter>'
-    contents_markup = contents_markup + '<ac:parameter ac:name="outline">false</ac:parameter>\n' \
-                                      '<ac:parameter ac:name="include"></ac:parameter>\n' \
-                                      '</ac:structured-macro>'
-
-    html = contents_markup + '\n' + html
-    return html
 
 
 def add_attachments(page_id, files):
@@ -805,14 +593,14 @@ def main():
 
     html = '\n'.join(html.split('\n')[1:])
 
-    html = convert_info_macros(html)
-    html = convert_comment_block(html)
-    html = convert_code_block(html)
+    html = convert.convert_info_macros(html)
+    html = convert.convert_comment_block(html)
+    html = convert.convert_code_block(html)
 
     if CONTENTS:
-        html = add_contents(html)
+        html = convert.add_contents(html)
 
-    html = process_refs(html)
+    html = convert.process_refs(html)
 
     html = add_header(html)
 
