@@ -23,6 +23,7 @@ import urllib
 import webbrowser
 import requests
 import markdown
+from datetime import datetime
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - \
 %(levelname)s - %(funcName)s [%(lineno)d] - \
@@ -67,6 +68,8 @@ PARSER.add_argument('--label', action='append', dest='labels', default=[],
 PARSER.add_argument('--property', action='append', dest='properties', default=[],
                     type=lambda kv: kv.split("="),
                     help='A list of content properties to set on the page.')
+PARSER.add_argument('-T', '--tag', action='store', dest='sha_tag', help='Git code tag or SHA1')
+PARSER.add_argument('-S', '--scmprefix', action='store', dest='scm_prefix', help='SCM prefix (appended with tag and the path to the markdownFile)')
 
 ARGS = PARSER.parse_args()
 
@@ -91,6 +94,8 @@ try:
     ATTACHMENTS = ARGS.attachment
     GO_TO_PAGE = not ARGS.nogo
     CONTENTS = ARGS.contents
+    SHA_TAG = ARGS.sha_tag
+    SCM_PREFIX = ARGS.scm_prefix
 
     if USERNAME is None:
         LOGGER.error('Error: Username not specified by environment variable or option.')
@@ -764,6 +769,16 @@ def upload_attachment(page_id, file, comment):
 
     return True
 
+def add_header(html):
+    if (SHA_TAG and SCM_PREFIX):
+        timestamp = datetime.strftime(datetime.now(), '%c')
+        base = os.path.basename(MARKDOWN_FILE)
+        bloburl = "%s/%s" % (SCM_PREFIX, os.path.join(SHA_TAG, MARKDOWN_FILE))
+        blurb = "<p><i>This page was auto-generated from <a href=\"%s\">%s version %s</a> on %s</i></p>" % (bloburl, base, SHA_TAG, timestamp)
+        return blurb + html
+    else:
+        return html
+
 
 def main():
     """
@@ -798,6 +813,8 @@ def main():
         html = add_contents(html)
 
     html = process_refs(html)
+
+    html = add_header(html)
 
     LOGGER.debug('html: %s', html)
 
