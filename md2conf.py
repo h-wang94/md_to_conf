@@ -72,6 +72,7 @@ PARSER.add_argument('--property', action='append', dest='properties', default=[]
                     help='A list of content properties to set on the page.')
 PARSER.add_argument('-T', '--tag', action='store', dest='sha_tag', help='Git code tag or SHA1')
 PARSER.add_argument('-S', '--scmprefix', action='store', dest='scm_prefix', help='SCM prefix (appended with tag and the path to the markdownFile)')
+PARSER.add_argument('-O', '--output', action='store', dest='output_file', help='Output converted HTML to a specified file')
 
 ARGS = PARSER.parse_args()
 
@@ -98,6 +99,7 @@ try:
     CONTENTS = ARGS.contents
     SHA_TAG = ARGS.sha_tag
     SCM_PREFIX = ARGS.scm_prefix
+    OUTPUT_FILE = ARGS.output_file
 
     if USERNAME is None:
         LOGGER.error('Error: Username not specified by environment variable or option.')
@@ -605,6 +607,10 @@ def main():
     html = add_header(html)
 
     LOGGER.debug('html: %s', html)
+
+    if OUTPUT_FILE is not None:
+        with open(OUTPUT_FILE, 'w') as output_file:
+            output_file.write(html)
 
     if SIMULATE:
         LOGGER.info("Simulate mode is active - stop processing here.")
