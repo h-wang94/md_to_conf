@@ -23,6 +23,7 @@ import urllib
 import webbrowser
 import requests
 import markdown
+import markdown2
 import convert
 
 from datetime import datetime
@@ -589,8 +590,7 @@ def main():
     LOGGER.info('Title:\t\t%s', title)
 
     with codecs.open(MARKDOWN_FILE, 'r', 'utf-8') as mdfile:
-        html = markdown.markdown(mdfile.read(), extensions=['markdown.extensions.tables',
-                                                       'markdown.extensions.fenced_code'])
+        html = markdown2.markdown(mdfile.read(), extras=["fenced-code-blocks"])
 
     html = '\n'.join(html.split('\n')[1:])
 
