@@ -40,8 +40,6 @@ def convert_code_block(html):
             content = re.search(r'<pre><code.*?>(.*?)</code></pre>', tag, re.DOTALL).group(1)
             content = '<ac:plain-text-body><![CDATA[' + content + ']]></ac:plain-text-body>'
             conf_ml = conf_ml + content + '</ac:structured-macro>'
-            conf_ml = conf_ml.replace('&lt;', '<').replace('&gt;', '>')
-            conf_ml = conf_ml.replace('&quot;', '"').replace('&amp;', '&')
 
             html = html.replace(tag, conf_ml)
 
@@ -212,5 +210,3 @@ def add_contents(html):
 
     html = contents_markup + '\n' + html
     return html
-
-
