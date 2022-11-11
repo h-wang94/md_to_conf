@@ -35,8 +35,7 @@ LOGGER = logging.getLogger(__name__)
 # ArgumentParser to parse arguments and options
 PARSER = argparse.ArgumentParser()
 PARSER.add_argument("markdownFile", help="Full path of the markdown file to convert and upload.")
-PARSER.add_argument('spacekey',
-                    help="Confluence Space key for the page. If omitted, will use user space.")
+PARSER.add_argument('-k', '--spacekey', help="Confluence Space key for the page. If omitted, will use user space.")
 PARSER.add_argument('-u', '--username', help='Confluence username if $CONFLUENCE_USERNAME not set.')
 PARSER.add_argument('-p', '--apikey', help='Confluence API key if $CONFLUENCE_API_KEY not set.')
 PARSER.add_argument('-o', '--orgname',
