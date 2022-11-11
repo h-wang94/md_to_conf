@@ -1,0 +1,10 @@
+{
+  "name": "md_to_conf",
+  "dependencies": {
+    "@semantic-release/git": "^10.0.0",
+    "@semantic-release/commit-analyzer": "^9.0.2",
+    "@commitlint/cli": "^17.0.2",
+    "@commitlint/config-conventional": "^17.0.2",
+    "semantic-release": "^19.0.3"
+  }
+}
